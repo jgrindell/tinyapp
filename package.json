@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/jgrindell/tinyapp/issues"
   },
-  "homepage": "https://github.com/jgrindell/tinyapp#readme"
+  "homepage": "https://github.com/jgrindell/tinyapp#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
 }
