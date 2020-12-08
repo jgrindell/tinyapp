@@ -10,8 +10,21 @@
       <a class="nav-item nav-link" href="/urls/new">Create New URL</a>
       </div>
     </div>
-    <form>
-      
-    </form>
+    <% if (username) { %>
+      <form class="row g-3" action="logout" method="POST">
+        <div class="col-auto">
+          <div>Logged In As: <%= username %>!</div>
+        </div>
+        <input type="submit" class="btn btn-danger" value="sign out"/>
+      </form>
+    <% } else { %>
+      <form class="row g-3" action="login" method="POST">
+        <div class="col-auto">
+          <input type="form" name="username" class="form-control" value="<%= username %>"/>
+        </div>
+        <input type="submit" class="btn btn-dark" value="sign in"/>
+      </form>
+    <% } %>
+    <div class="col-auto"></div>
   </nav>
 </header>
