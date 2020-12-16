@@ -10,17 +10,19 @@
       <a class="nav-item nav-link" href="/urls/new">Create New URL</a>
       </div>
     </div>
-    <% if (username) { %>
+    <% if (user_id) { %>
       <form class="row g-3" action="logout" method="POST">
         <div class="col-auto">
-          <div>Logged In As: <%= username %>!</div>
+          <label>Logged In As: <%= email %>!</label>
         </div>
-        <input type="submit" class="btn btn-danger" value="sign out"/>
+        <div class="col-auto">
+          <input type="submit" class="btn btn-danger" value="sign out"/>
+        </div>
       </form>
     <% } else { %>
       <form class="row g-3" action="login" method="POST">
         <div class="col-auto">
-          <input type="form" name="username" class="form-control" value="<%= username %>"/>
+          <input type="form" name="username" class="form-control"/>
         </div>
         <input type="submit" class="btn btn-dark" value="sign in"/>
       </form>
