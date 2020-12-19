@@ -12,18 +12,18 @@
     </div>
     <% if (user_id) { %>
       <form class="row g-3" action="logout" method="POST">
-        <div class="col-auto">
-          <label>Logged In As: <%= email %>!</label>
+        <div class="col-auto">  
+          <label>Logged In As: <%= user_id %>!</label>
         </div>
         <div class="col-auto">
           <input type="submit" class="btn btn-danger" value="sign out"/>
         </div>
       </form>
     <% } else { %>
-      <form class="row g-3" action="login" method="POST">
-        <div class="col-auto">
-          <input type="form" name="username" class="form-control"/>
-        </div>
+      <form class="col-auto" action="register" method="GET">
+        <input type="submit" class="btn btn-dark" value="register"/>
+      </form>
+      <form class="col-auto" action="login" method="GET">
         <input type="submit" class="btn btn-dark" value="sign in"/>
       </form>
     <% } %>
