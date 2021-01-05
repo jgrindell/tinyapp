@@ -1,7 +1,7 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
-const e = require("express");
+const bcrypt = require("bcrypt");
 const app = express();
 const PORT = 8080; // default port 8080
 
@@ -12,8 +12,14 @@ app.use(express.json());
 app.use(express.urlencoded());
 
 const urlDatabase = {
-  "b2xVn2":"http://www.lighthouselabs.ca",
-  "9sm5xK":"http://www.google.com"
+  asdf: {
+    longURL: "https://lighthouselabs.ca",
+    shortURL: "asdf"
+  },
+  qwerty: {
+    longURL: "https://reddit.com",
+    shortURL: "qwerty"
+  }
 };
 
 const users = {};
@@ -27,190 +33,155 @@ function generateRandomString(length) {
   return result
 }
 
+// Object.values(object) returns array of all values
 function emailLookup(email) {
   let keys = Object.keys(users);
-  let result = false;
   for (let i=0; i<keys.length; i++) {
-    if (users[keys[i]].email) {
-      result = true
+    if (users[keys[i]].email === email) {
+      return users[keys[i]]
     }
   }
-  return result
+  return null;
+}
+
+function generateBaseTemplateVars(user_id) {
+  return {
+    user_id,
+    email: user_id && users[user_id] ? users[user_id].email : ""
+  }
 }
 
 app.get("/", (req, res) => {
   res.send("Hello");
 })
 
-app.get("/urls.json", (req, res) => {
-  res.json(urlDatabase);
-})
-
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n")
-})
-
 app.get("/urls/new", (req, res) => {
   const user_id = req.cookies.user_id;
-  const templateVars = {
-    user_id: user_id,
-    email: function () {
-      if (users[user_id].email) {
-        return users[user_id].email
-      } else {
-        return undefined
-      }
-    }
+  const templateVars = generateBaseTemplateVars(user_id)
+  if (user_id) {
+    res.render("urls_new", templateVars);
+  } else {
+    res.render("login", templateVars);
   }
-  res.render("urls_new", templateVars);
 })
 
 app.get("/urls", (req, res) => {
   const user_id = req.cookies.user_id;
+  const urls = user_id ?
+    users[user_id].urls.reduce((acc, nextUrl) => {
+      acc[nextUrl] = urlDatabase[nextUrl]
+      return acc
+    }, {}) :
+    {}
+
   const templateVars = {
-    urls: urlDatabase,
-    user_id: user_id,
-    email: function () {
-      if (users[user_id].email) {
-        return users[user_id].email
-      } else {
-        return undefined
-      }
-    }
-  };
+    ...generateBaseTemplateVars(user_id),
+    urls
+  }
   res.render("urls_index", templateVars);
 })
 
 app.post("/urls", (req, res) => {
   const user_id = req.cookies.user_id;
+  const shortURL = generateRandomString(6);
+  const longURL = req.body.longURL;
+
   const templateVars = {
-    shortURL: generateRandomString(6),
-    longURL: req.body.longURL,
-    user_id: user_id,
-    email: function () {
-      if (users[user_id].email) {
-        return users[user_id].email
-      } else {
-        return undefined
-      }
-    }
+    ...generateBaseTemplateVars(user_id),
+    shortURL,
+    longURL
   }
-  urlDatabase[templateVars.shortURL] = templateVars.longURL;
+  urlDatabase[shortURL] = {longURL, shortURL};
+
+  users[user_id].urls.push(shortURL);
   res.redirect(`/urls/${templateVars.shortURL}`);
 })
 
 app.post("/logout", (req, res) => {
   res.clearCookie("user_id");
-  res.clearCookie("email");
   res.redirect("/urls");
 })
 
 app.get("/register", (req, res) => {
   const user_id = req.cookies.user_id;
-  const templateVars = {
-    user_id: user_id,
-    email: function () {
-      if (users[user_id].email) {
-        return users[user_id].email
-      } else {
-        return undefined
-      }
-    }
-  }
+  const templateVars = generateBaseTemplateVars(user_id)
   res.render("registration", templateVars);
 })
 
 app.post("/register", (req, res) => {
-  const userID = generateRandomString(8);
+  const user_id = generateRandomString(8);
   if (!req.body.email) {
     res.redirect("/register", 400);
   } else if (emailLookup(req.body.email)){
     res.redirect("/register", 400);
   } else {
-    users[userID] = {id: userID, email: req.body.email, password: req.body.password};
-    res.cookie("user_id", userID);
-    res.cookie("email", users[userID].email);
+    users[user_id] = {
+      id: user_id, 
+      email: req.body.email, 
+      password: bcrypt.hashSync(req.body.password, 10),
+      urls: []
+    };
+    res.cookie("user_id", user_id);
     res.redirect("/urls");
   }
 })
 
 app.get("/login", (req, res) => {
   const user_id = req.cookies.user_id;
-  const templateVars = {
-    user_id: user_id,
-    email: function () {
-      if (users[user_id].email) {
-        return users[user_id].email
-      } else {
-        return undefined
-      }
-    }
-  }
+  const templateVars = generateBaseTemplateVars(user_id);
   res.render("login", templateVars);
 })
 
 app.post("/login", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  if (emailLookup(email)) {
-    let keys = Object.keys(users);
-    for (let i=0; i<keys.length; i++) {
-      if (users[keys[i]].email) {
-        if (users[keys[i]].password === password) {
-          res.cookie("user_id", users[keys[i]].user_id);
-          res.redirect("/urls");
-        } else {
-          console.log("incorrect password")
-          res.redirect("/urls", 403);
-        }
-      }
+  const user = emailLookup(email);
+  if (user) {
+    if (bcrypt.compareSync(password, user.password)) {
+      res.cookie("user_id", user.user_id);
+      res.redirect("/urls");
+    } else {
+      res.redirect("/login", 403);
     }
   } else {
-    console.log("email not found")
-    res.redirect("/urls", 403);
+    res.redirect("/login", 403);
   }
 })
 
 app.get("/urls/:shortURL",(req, res) => {
   const user_id = req.cookies.user_id;
+  const shortURL = req.params.shortURL
   const templateVars = { 
-    shortURL: req.params.shortURL, 
-    longURL: urlDatabase[req.params.shortURL],
-    user_id: user_id,
-    email: function () {
-      if (users[user_id].email) {
-        return users[user_id].email
-      } else {
-        return undefined
-      }
-    }
+    ...generateBaseTemplateVars(user_id),
+    shortURL, 
+    longURL: urlDatabase[shortURL].longURL
   }
   res.render("urls_show", templateVars);
 });
 
 app.get("/u/:shortURL", (req, res) => {
-  const user_id = req.cookies.user_id;
-  const templateVars = {
-    shortURL: req.params.shortURL,
-    longURL: urlDatabase[shortURL],
-    user_id: user_id,
-    email: function () {
-      if (users[user_id].email) {
-        return users[user_id].email
-      } else {
-        return undefined
-      }
-    }
-  }
-  res.redirect(templateVars.longURL);
+  const shortURL = req.params.shortURL;
+  const longURL = urlDatabase[shortURL].longURL;
+  res.redirect(longURL);
 });
 
 app.post("/urls/:shortURL/delete", (req, res) => {
-  delete urlDatabase[req.params.shortURL];
-  res.redirect("/urls");
+  const user_id = req.cookies.user_id;
+  const shortURL = req.params.shortURL;
+
+  const user = users[user_id]
+  if (user && user.urls.includes(shortURL)) {
+    delete urlDatabase[shortURL];
+    user.urls = user.urls.filter((url) => url !== shortURL)
+    res.redirect("/urls");
+  } else {
+    console.log("delete unsuccessful")
+    res.redirect("/urls", 403);
+  }
 })
 
 app.post("/urls/:shortURL", (req, res) => {
+  // idk
   res.redirect(`/urls/${req.params.shortURL}`);
 })
 
